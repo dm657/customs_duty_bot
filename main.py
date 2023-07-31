@@ -54,8 +54,11 @@ async def calculate(message: Message):
     # v, y = max(vals), min(vals)
         stavka = STAVKI[sum(map(lambda x: v <= x, RANGES))]
         euro = round(v * stavka, 2)
-        rub = round(euro * get_exchange_rate())
-        await message.reply(text=f"Пошлина составит {euro} €\nчто по текущему курсу {rub} ₽")
+        try:
+            rub = round(euro * get_exchange_rate())
+            await message.reply(text=f"Пошлина составит {euro} €\nчто по текущему курсу {rub} ₽")
+        except Exception:
+            await message.reply(text=f"Пошлина составит {euro} €\nне удалось получить курс €\nдля расчета в ₽")
     except ValueError:
         await message.reply("Введите число")
 

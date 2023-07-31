@@ -7,20 +7,26 @@ URL = "https://www.cbr-xml-daily.ru/daily_json.js"
 
 
 def get_exchange_rate(currency='EUR'):
-    while True:
+    try:
         with open('exchange_rate.json', encoding='utf8') as file:
             data = json.load(file)
-        last_update = dt.fromisoformat(data["Timestamp"])
-        now = dt.now(timezone(zone='Asia/Vladivostok'))
-        if now - last_update > td(hours=1, seconds=20):
-            print(f"dt = {now - last_update} | updating")
-            write_data()
-            #
-            with open('exchange_rate.json', encoding='utf8') as file:
-                data = json.load(file)
-        euro_exchange_rate = float(data['Valute'][currency]['Value'])
-        print(data['Date'], data["Timestamp"], sep=' | ')
-        return euro_exchange_rate
+    except FileNotFoundError:
+        write_data()
+        with open('exchange_rate.json', encoding='utf8') as file:
+            data = json.load(file)
+
+    last_update = dt.fromisoformat(data["Timestamp"])
+    # data = json.load(file)
+    now = dt.now(timezone(zone='Asia/Vladivostok'))
+    if now - last_update > td(hours=1, seconds=20):
+        print(f"dt = {now - last_update} | updating")
+        write_data()
+        #
+        with open('exchange_rate.json', encoding='utf8') as file:
+            data = json.load(file)
+    euro_exchange_rate = float(data['Valute'][currency]['Value'])
+    print(data['Date'], data["Timestamp"], sep=' | ')
+    return euro_exchange_rate
 
 
 def write_data():
