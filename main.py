@@ -1,7 +1,6 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import magic_filter
-from decimal import Decimal
-#
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command #, Text
 
@@ -50,14 +49,12 @@ async def send_echo(message: Message):
 async def calculate(message: Message):
     try:
         v = int(message.text)
-    # vals = tuple(map(int, message.text.split())
-    # v, y = max(vals), min(vals)
         stavka = STAVKI[sum(map(lambda x: v <= x, RANGES))]
         euro = round(v * stavka, 2)
-        try:
-            rub = round(euro * get_exchange_rate())
+        rub = round(euro * get_exchange_rate())
+        if rub:
             await message.reply(text=f"Пошлина составит {euro} €\nчто по текущему курсу {rub} ₽")
-        except Exception:
+        else:
             await message.reply(text=f"Пошлина составит {euro} €\nне удалось получить курс €\nдля расчета в ₽")
     except ValueError:
         await message.reply("Введите число")
