@@ -2,9 +2,22 @@ import requests
 import json
 from datetime import datetime as dt, timedelta as td
 from pytz import timezone
+from aiogram.types import Message
+from aiogram import F
 
 URL = "https://www.cbr-xml-daily.ru/daily_json.js"
 # URL = 'https://yesno.wtf/api?force=yes'
+
+
+def add_user(d: dict, update: Message):
+    if update.from_user.id not in d:
+        d[update.from_user.id] = {
+            'volume': 0
+            , 'y': ''
+            , 'price': 0
+            # , 'status': None
+            }
+        return True
 
 
 def get_exchange_rate(currency='EUR'):
