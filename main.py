@@ -18,15 +18,16 @@ import my_funcs
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-button_start: KeyboardButton = KeyboardButton(text="/start")
-button_help: KeyboardButton = KeyboardButton(text="/help")
+button_go: KeyboardButton = KeyboardButton(text="/начать")
+button_reset_start: KeyboardButton = KeyboardButton(text="/сброс")
 kb1: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
-    keyboard=[[button_start, button_help]], resize_keyboard=True)
+    keyboard=[[button_go, button_reset_start]],
+    resize_keyboard=True, one_time_keyboard=False)
 
 b_less_3 = InlineKeyboardButton(text='меньше 3', callback_data=',менее 3')
 b_3_to_5 = InlineKeyboardButton(text='от 3 до 5', callback_data='от 3 до 5')
 b_over_5 = InlineKeyboardButton(text='5 и более', callback_data='старше 5')
-b_done = InlineKeyboardButton(text="готово", callback_data='done')
+b_done = InlineKeyboardButton(text="готово", callback_data='next')
 b_cancel = InlineKeyboardButton(text="Сброс", callback_data='cancel')
 
 years_kb = InlineKeyboardMarkup(inline_keyboard=[[b_less_3, b_3_to_5, b_over_5]])
@@ -36,18 +37,38 @@ two_line_with_done_kb = InlineKeyboardMarkup(inline_keyboard=[[b_less_3, b_3_to_
 users_data = {}
 
 
-@dp.message(lambda x: x.text == '/start' or users_data[x.from_user.id].get('status') == 'ready')
-                      # x.from_user.id not in users_data)
-async def check_is_it_new_user(message: Message):
-    print()
-    my_funcs.add_user(users_data, message)
-    users_data[message.from_user.id]['status'] = 'w8_year'
+@dp.message(Command(commands=["start", "сброс"]))
+async def process_start_command(message: Message):
     await message.delete()
+    await message.answer(
+        text='''Привет!
+Я могу посчитать пошлину на авто!''',
+        reply_markup=kb1)
+    await message.answer(text=INIT_MSG, reply_markup=years_kb)
+    my_funcs.add_user(users_data, message)
+    users_data[message.from_user.id]['msg_id'] = message.message_id + 2
+    users_data[message.from_user.id]['status'] = 'w8_year'
 
+
+@dp.message(Command(commands=['/начать']))
+async def starting(message: Message):
+    print(message.message_id)
+    await message.delete()
     await message.answer(
         text=INIT_MSG,
         reply_markup=years_kb)
+    my_funcs.add_user(users_data, message)
+    users_data[message.from_user.id]['status'] = 'w8_year'
     users_data[message.from_user.id]['msg_id'] = message.message_id + 1
+
+
+# @dp.message(lambda x: users_data[x.from_user.id].get('status') == 'done')
+#                       # x.from_user.id not in users_data)
+# async def going_on(message: Message):
+#     # print()
+#     # my_funcs.add_user(users_data, message)
+#     # users_data[message.from_user.id]['status'] = 'w8_year'
+#     await message.delete()
 
 
 @dp.callback_query(F.data.in_(['менее 3', 'от 3 до 5', 'старше 5']))
@@ -57,23 +78,6 @@ async def year_chosen(callback: callback_query):
     users_data[callback.from_user.id]['status'] = 'w8 vol'
     print(callback.message.message_id)
     await callback.answer('got it!')
-
-
-@dp.callback_query(F.data == 'cancel')
-async def press_cancel(callback: callback_query):
-    users_data[callback.from_user.id]['status'] = 'ready'
-    await callback.message.edit_text(text=INIT_MSG, reply_markup=years_kb)
-
-
-@dp.callback_query(F.data == 'done')
-async def press_done(callback: callback_query):
-    users_data[callback.from_user.id]['status'] = 'ready'
-    await callback.message.edit_text(
-        text=f"{users_data[callback.from_user.id]['last_result']} ", reply_markup=None)
-    my_funcs.add_user(users_data, callback)
-    users_data[callback.from_user.id]['msg_id'] = callback.message.message_id + 2
-    print(callback.message.message_id)
-    await callback.message.answer(text=INIT_MSG, reply_markup=years_kb)
 
 
 @dp.message(lambda x: x.text.isdigit() and
@@ -86,7 +90,7 @@ async def get_volume(message: Message):
         euro = round(v * stavka, 2)
         eur_ex_rate = my_funcs.get_exchange_rate()
         rub = f"{round(euro * eur_ex_rate):_}".replace('_', ' ')
-        users_data[u_id]['status'] = 'ready'
+        users_data[u_id]['status'] = 'done'
         if rub:  # rub == 0 if unable to get exchange rate
             await message.delete()
             users_data[u_id]['last_result'] = RES_SAMPLE_RU.format(
@@ -101,19 +105,27 @@ async def get_volume(message: Message):
         # await message.answer(text='Укажите возраст авто', reply_markup=inline_kb)
 
 
-@dp.message(Command(commands=["start"]))
-async def process_start_command(message: Message):
-    await message.answer(
-        text='''Привет!
-        Я могу посчитать пошлину на авто!
-        Укажите возраст а/м и
-        Введите объем двигателя''',
-        reply_markup=years_kb)
+@dp.callback_query(F.data == 'cancel')
+async def press_cancel(callback: callback_query):
+    users_data[callback.from_user.id]['status'] = 'w8 vol'
+    await callback.message.edit_text(text=INIT_MSG, reply_markup=years_kb)
+
+
+@dp.callback_query(F.data == 'next')
+async def press_next(callback: callback_query):
+    users_data[callback.from_user.id]['status'] = 'w8_year'
+    await callback.message.edit_text(
+        text=f"{users_data[callback.from_user.id]['last_result']} ", reply_markup=None)
+    my_funcs.add_user(users_data, callback)
+    users_data[callback.from_user.id]['msg_id'] = callback.message.message_id + 2
+    print(callback.message.message_id)
+    await callback.message.answer(text=INIT_MSG, reply_markup=years_kb)
 
 
 @dp.message(Command(commands=["help"]))
 async def process_start_command(message: Message):
-    await message.answer('Пока могу посчитать только для а/м с ДВС от 3 лет', reply_markup=kb1)
+    pass
+    # await message.answer('Пока могу посчитать только для а/м с ДВС от 3 лет', reply_markup=kb1)
 
 
 """
@@ -137,6 +149,11 @@ async def calculate(message: Message):
 
 
 @dp.message(F.text)
+async def send_echo(message: Message):
+    await message.delete()
+
+
+@dp.message()
 async def send_echo(message: Message):
     await message.delete()
 

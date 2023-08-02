@@ -15,7 +15,7 @@ def add_user(d: dict, update: Message):
         , 'y': ''
         , 'price': 0
         # , 'msg_id': update.message_id + 1
-        # , 'status': None
+        # , 'status': 'w8_year'
         }
     return True
 
