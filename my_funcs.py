@@ -10,14 +10,14 @@ URL = "https://www.cbr-xml-daily.ru/daily_json.js"
 
 
 def add_user(d: dict, update: Message):
-    if update.from_user.id not in d:
-        d[update.from_user.id] = {
-            'volume': 0
-            , 'y': ''
-            , 'price': 0
-            # , 'status': None
-            }
-        return True
+    d[update.from_user.id] = {
+        'volume': 0
+        , 'y': ''
+        , 'price': 0
+        # , 'msg_id': update.message_id + 1
+        # , 'status': None
+        }
+    return True
 
 
 def get_exchange_rate(currency='EUR'):
