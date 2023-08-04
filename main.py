@@ -24,14 +24,16 @@ button_reset_start: KeyboardButton = KeyboardButton(text="/сброс")
 kb1: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
     keyboard=[[button_go, button_reset_start]],
     resize_keyboard=True, one_time_keyboard=False)
-
+# ֍֎
 b_less_3 = InlineKeyboardButton(text='меньше 3', callback_data=',менее 3')
 b_3_to_5 = InlineKeyboardButton(text='от 3 до 5', callback_data='от 3 до 5')
 b_over_5 = InlineKeyboardButton(text='5 и более', callback_data='старше 5')
 b_done = InlineKeyboardButton(text="готово", callback_data='next')
+b_blank = InlineKeyboardButton(text=' ', callback_data='do_nothing')
 b_cancel = InlineKeyboardButton(text="Сброс", callback_data='cancel')
 
 years_kb = InlineKeyboardMarkup(inline_keyboard=[[b_less_3, b_3_to_5, b_over_5]])
+blank_cancel_kb = InlineKeyboardMarkup(inline_keyboard=[[b_blank, b_cancel]])
 done_cancel_kb = InlineKeyboardMarkup(inline_keyboard=[[b_done, b_cancel]])
 # two_line_with_done_kb = InlineKeyboardMarkup(
 #     inline_keyboard=[[b_less_3, b_3_to_5, b_over_5], [b_done, b_cancel]])
@@ -74,6 +76,9 @@ async def year_chosen(callback: callback_query):
     users_data[callback.from_user.id]['msg_id'] = callback.message.message_id
     print(f"year chosen. message.callback.id {callback.message.message_id}")
     await callback.answer('got it!')
+    await bot.edit_message_text(text='Принято! Следующй шаг:\nВведите объем двигателя в См³',
+                                reply_markup=blank_cancel_kb,
+                                chat_id=callback.message.chat.id, message_id=callback.message.message_id)
 
 
 @dp.message(lambda x: (x.text and x.text.isdigit()
@@ -113,6 +118,11 @@ async def press_next(callback: callback_query):
         text=f"{users_data[callback.from_user.id]['last_result']} ", reply_markup=None)
     my_funcs.add_user(users_data, callback)
     await callback.message.answer(text=INIT_MSG, reply_markup=years_kb)
+
+
+@dp.callback_query(F.data == 'do_nothing')
+async def press_blank(callback: callback_query):
+    await callback.answer()
 
 
 @dp.message(Command(commands=["help"]))

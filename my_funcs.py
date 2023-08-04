@@ -30,7 +30,7 @@ def get_exchange_rate(d: dict, currency='EUR', json_file='exchange_rate.json'):
             assert data_from_http.status_code == 200
             print("Got data", data_from_http.status_code)
             print()
-        except (Exception, ConnectionError, ConnectionRefusedError):
+        except (Exception, ConnectionError, ConnectionRefusedError, AssertionError):
             pass
         else:
             # print(type(data_from_http.json()))
