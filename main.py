@@ -13,7 +13,8 @@ from aiogram import F
 # from aiogram.methods import edit_message_text
 
 from bot_token import TOKEN
-from data import STAVKI, RANGES, INIT_MSG, RES_SAMPLE_RU, EXCHANGE_RATE_SAMPLE, T_ZONE
+from data import (STAVKI, RANGES, PRICE_RANGES, INIT_MSG, T_ZONE,
+                  RES_SAMPLE_RU, RES_SAMPLE_LESS_3_RU, EXCHANGE_RATE_SAMPLE)
 import my_funcs
 
 bot = Bot(token=TOKEN)
@@ -25,7 +26,7 @@ kb1: ReplyKeyboardMarkup = ReplyKeyboardMarkup(
     keyboard=[[button_go, button_reset_start]],
     resize_keyboard=True, one_time_keyboard=False)
 # ֍֎
-b_less_3 = InlineKeyboardButton(text='меньше 3', callback_data=',менее 3')
+b_less_3 = InlineKeyboardButton(text='менее 3', callback_data='менее 3')
 b_3_to_5 = InlineKeyboardButton(text='от 3 до 5', callback_data='от 3 до 5')
 b_over_5 = InlineKeyboardButton(text='5 и более', callback_data='старше 5')
 b_done = InlineKeyboardButton(text="готово", callback_data='next')
@@ -52,9 +53,7 @@ async def process_start_command(message: Message):
         reply_markup=kb1)
     await message.answer(text=INIT_MSG, reply_markup=years_kb)
     my_funcs.add_user(users_data, message)
-    # users_data[message.from_user.id]['msg_id'] = message.message_id + 2
     users_data[message.from_user.id]['status'] = 'w8_year'
-    # print('saved msg_id', users_data[message.from_user.id]['msg_id'])
 
 
 @dp.message(Command(commands=['/начать']))
@@ -87,14 +86,16 @@ async def get_volume(message: Message):
     print(f"vol entered. message.message_id {message.message_id}")
     u_id = message.from_user.id
     v = users_data[message.from_user.id]['volume'] = int(message.text)
+    await message.delete()
     if users_data[u_id]['y'] in ['от 3 до 5', 'старше 5']:
         stavka = STAVKI[users_data[u_id]['y']][sum(map(lambda x: v <= x, RANGES))]
         euro = round(v * stavka, 2)
         eur_ex_rate = my_funcs.get_exchange_rate(exchange_rates)
         rub = f"{round(euro * eur_ex_rate):_}".replace('_', ' ')
         users_data[u_id]['status'] = 'done'
+        # await message.delete()
         if eur_ex_rate:  # eur_ex_rate == 0 if unable to get exchange rate
-            await message.delete()
+            # await message.delete()
             users_data[u_id]['last_result'] = RES_SAMPLE_RU.format(
                 users_data[u_id]['y'], v, euro, eur_ex_rate, rub)
 
@@ -103,6 +104,38 @@ async def get_volume(message: Message):
                 reply_markup=done_cancel_kb, chat_id=message.chat.id, message_id=users_data[u_id]['msg_id'])
         else:
             await message.reply(text=f"Пошлина составит {euro} €\nне удалось получить курс €\nдля расчета в ₽")
+
+    else:
+        await bot.edit_message_text(
+            text="Теперь введите таможенную стоимость в €", reply_markup=blank_cancel_kb,
+            chat_id=message.chat.id, message_id=users_data[u_id]['msg_id'])
+        users_data[u_id]['status'] = 'w8_price'
+        # eur_ex_rate = my_funcs.get_exchange_rate(exchange_rates)
+        # rub = f"{round(euro * eur_ex_rate):_}".replace('_', ' ')
+
+
+@dp.message(lambda x: (x.text and x.text.isdigit()
+                       and users_data[x.from_user.id]['status'] == 'w8_price'))
+async def get_price(message: Message):
+    u_id = message.from_user.id
+    users_data[u_id]['status'] = 'done'
+    price = users_data[u_id]['price'] = int(message.text)
+    v = users_data[u_id]['volume']
+    eur_ex_rate = my_funcs.get_exchange_rate(exchange_rates)
+    stavka = STAVKI[users_data[u_id]['y']][sum(map(lambda x: price <= x, PRICE_RANGES))]
+    euro = round(max((v * stavka, price * (0.54, 0.48)[price >= 8500])))
+    rub = f"{round(euro * eur_ex_rate):_}".replace('_', ' ')
+    await message.delete()
+    if eur_ex_rate:  # eur_ex_rate == 0 if unable to get exchange rate
+        # await message.delete()
+        users_data[u_id]['last_result'] = RES_SAMPLE_RU.format(
+            users_data[u_id]['y'], v, euro, eur_ex_rate, rub)
+
+        await bot.edit_message_text(
+            text=RES_SAMPLE_LESS_3_RU.format(users_data[u_id]['y'], v, price, euro, eur_ex_rate, rub),
+            reply_markup=done_cancel_kb, chat_id=message.chat.id, message_id=users_data[u_id]['msg_id'])
+    else:
+        await message.reply(text=f"Пошлина составит {euro} €\nне удалось получить курс €\nдля расчета в ₽")
 
 
 @dp.callback_query(F.data == 'cancel')
@@ -133,7 +166,11 @@ async def process_start_command(message: Message):
 
 @dp.message(F.content_type == ContentType.VOICE)
 async def send_echo(message: Message):
-    await message.reply(text="голосовое своё себе отправь")
+    await message.delete()
+    await message.answer(
+        text="к сожалению я не умею распознавать голосовые сообщения, "
+             "но по вопросам, связанным с покупкой авто на аукционе "
+             "можете обратиться сюда\nhttps://taplink.cc/jdmautoru")
 
 
 @dp.message()
